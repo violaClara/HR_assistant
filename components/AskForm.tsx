@@ -12,7 +12,11 @@ export default function AskForm() {
     try {
       const form = new FormData()
       form.append("question", question)
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/ask/`, form)
+      const res = await axios.post(
+  `${process.env.NEXT_PUBLIC_API_BASE_URL}/ask/`,
+  form,
+  { timeout: 1800000 } // 30 menit = 30 * 60 * 1000
+)
       setAnswer(res.data.response)
     } catch (err) {
       console.error(err)
