@@ -9,19 +9,50 @@ export default function AskForm() {
 
   const handleAsk = async () => {
     setLoading(true)
-    try {
+     try {
+      // 1. Kirim pertanyaan → backend mulai proses
       const form = new FormData()
       form.append("question", question)
-      const res = await axios.post(
-  `${process.env.NEXT_PUBLIC_API_BASE_URL}/ask/`,
-  form,
-  { timeout: 1800000 } // 30 menit = 30 * 60 * 1000
-)
-      setAnswer(res.data.response)
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/ask/`, form)
+
+      const taskId = res.data.task_id
+      if (!taskId) throw new Error("Gagal ambil task_id")
+
+      // 2. Polling tiap 2 detik untuk cek status
+      const checkInterval = 2000
+      const maxRetries = 60 // timeout setelah 2 menit
+      let retries = 0
+
+      const poll = async () => {
+        try {
+          const statusRes = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/ask/status/${taskId}`)
+          if (statusRes.data.status === "completed") {
+            setAnswer(statusRes.data.response)
+            setLoading(false)
+          } else if (statusRes.data.status === "failed") {
+            setAnswer("Gagal memproses jawaban 😵")
+            setLoading(false)
+          } else {
+            if (retries < maxRetries) {
+              retries++
+              setTimeout(poll, checkInterval)
+            } else {
+              setAnswer("⏳ Timeout: jawaban terlalu lama.")
+              setLoading(false)
+            }
+          }
+        } catch (err) {
+          console.error(err)
+          setAnswer("❌ Gagal polling ke server.")
+          setLoading(false)
+        }
+      }
+
+      poll()
+
     } catch (err) {
       console.error(err)
-      setAnswer("Gagal ambil jawaban 😵")
-    } finally {
+      setAnswer("❌ Gagal kirim pertanyaan.")
       setLoading(false)
     }
   }
